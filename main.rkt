@@ -90,7 +90,7 @@
                                  (pr null)
                                  (po null))
                         (define v (read port))
-                        (cond ((eof-object? v) (list 'module (gensym 'rget) (path->string (path->complete-path lib))
+                        (cond ((eof-object? v) (list 'module (gensym 'rget) (list 'file (path->string (path->complete-path lib)))
                                                      ':pr (if (null? pr) '((void)) pr)
                                                      ':u u
                                                      ':h h
