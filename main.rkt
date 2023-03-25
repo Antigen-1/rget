@@ -56,24 +56,28 @@
       )
      #'(#%module-begin
         pre ...
-        (define-values (port headers)
-          (parameterize ((current-https-protocol p))
-            (get-pure-port/headers (if (string? l) (string->url l) l)
-                                   (list b ...)
-                                   #:method #"GET"
-                                   #:redirections n
-                                   #:status? #f)))
         (dynamic-wind
           void
           (lambda ()
-            (define type
-              (let/cc ret (car (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Encoding" headers))
-                                                                                 (else (ret #f)))))))
-            (define handler (cond ((not type) copy-port)
-                                  ((string-ci=? type "gzip") gunzip-through-ports)
-                                  ((string-ci=? type "deflate") inflate)))
-            (call-with-output-file #:exists e o (lambda (output) (handler port output))))
-          (lambda () (close-input-port port) post ...))))))
+            (define-values (port headers)
+              (parameterize ((current-https-protocol p))
+                (get-pure-port/headers (if (string? l) (string->url l) l)
+                                       (list b ...)
+                                       #:method #"GET"
+                                       #:redirections n
+                                       #:status? #f)))
+            (dynamic-wind
+              void
+              (lambda ()
+                (define type
+                  (let/cc ret (car (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Encoding" headers))
+                                                                                     (else (ret #f)))))))
+                (define handler (cond ((not type) copy-port)
+                                      ((string-ci=? type "gzip") gunzip-through-ports)
+                                      ((string-ci=? type "deflate") inflate)))
+                (call-with-output-file #:exists e o (lambda (output) (handler port output))))
+              (lambda () (close-input-port port))))
+          (lambda () post ...))))))
 
 (define read-syntax
   (lambda (src port)
@@ -98,7 +102,7 @@
                                                      ':f f
                                                      ':e e
                                                      ':p p
-                                                     ':po po))
+                                                     ':po (if (null? po) '((void)) po)))
                               ((eq? v ':u)
                                (loop (read port) r e f p h pr po))
                               ((eq? v ':r)
