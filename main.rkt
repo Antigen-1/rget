@@ -98,7 +98,7 @@
                                                      ':f f
                                                      ':e e
                                                      ':p p
-                                                     ':po (if (null? po) '((void)) po)))
+                                                     ':po po))
                               ((eq? v ':u)
                                (loop (read port) r e f p h pr po))
                               ((eq? v ':r)
