@@ -67,7 +67,7 @@
           void
           (lambda ()
             (define type
-              (let/cc ret (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Type" headers))
+              (let/cc ret (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Encoding" headers))
                                                                             (else (ret #f))))))
             (define handler (cond ((not type) copy-port)
                                   ((string-ci=? (bytes->string/utf-8 type) "gzip") gunzip-through-ports)
