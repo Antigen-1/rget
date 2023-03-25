@@ -125,7 +125,7 @@
   (test-case
       "read-syntax"
     (check-match (syntax->datum (read-syntax #f (open-input-string ":u \"https://127.0.0.1:8080\" :r 4 :e 'truncate :f \"test\" :p 'auto :h \"Content-Type: gzip\" :h :pr (displayln \"hello\") :pr :po (displayln \"finish\") :po :pr (displayln \"begin\") :pr")))
-                 (list 'module _ (regexp "^.*main\\.rkt$")
+                 (list 'module _ (list 'file (regexp "^.*main\\.rkt$"))
                        ':pr (list (list 'displayln "hello") (list 'displayln "begin"))
                        ':u "https://127.0.0.1:8080"
                        ':h (list "Content-Type: gzip")
