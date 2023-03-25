@@ -32,19 +32,96 @@
   ;; or with `raco test`. The code here does not run when this file is
   ;; required by another module.
 
-  (check-equal? (+ 2 2) 4))
+  )
 
-(module+ main
-  ;; (Optional) main submodule. Put code here if you need it to be executed when
-  ;; this file is run using DrRacket or the `racket` executable.  The code here
-  ;; does not run when this file is required by another module. Documentation:
-  ;; http://docs.racket-lang.org/guide/Module_Syntax.html#%28part._main-and-test%29
+(require net/url net/head racket/port file/gunzip racket/runtime-path (for-syntax racket/base))
 
-  (require racket/cmdline)
-  (define who (box "world"))
-  (command-line
-    #:program "my-program"
-    #:once-each
-    [("-n" "--name") name "Who to say hello to" (set-box! who name)]
-    #:args ()
-    (printf "hello ~a~n" (unbox who))))
+(define-runtime-path lib "./main.rkt")
+
+(define-syntax (#%rget-module-begin stx)
+  (syntax-case stx (:pr :u :h :r :f :e :po)
+    ((_
+      :pr (pre ...) ;;preprocess(optional); can be appended
+
+      ;;these are used to config the downloader
+      ;;all of these can be s-expressions
+      :u l ;;url; strings are automatically converted; it can be overwritten
+      :h (b ...) ;;header(optional); can be appended
+      :r n ;;redirection; it can be overwritten; default to 0
+      :f o ;;output; it can be overwritten
+      :e e ;;`#:exists` kwarg of `call-with-output-file`; it can be overwritten; default to 'truncate/replace
+      
+      :po (post ...) ;;postprocess(optional); can be appended
+      )
+     #'(#%module-begin
+        (dynamic-wind
+          (lambda () pre ...)
+          (lambda ()
+            (define-values (port headers) (get-pure-port/headers (if (string? l) (string->url l) l)
+                                                                 (list b ...)
+                                                                 #:method #"GET"
+                                                                 #:redirections n
+                                                                 #:status #f))
+            (define type
+              (let/cc ret (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Type" headers))
+                                                                            (else (ret #f))))))
+            (define handler (cond ((not type) copy-port)
+                                  ((string-ci=? (bytes->string/utf-8 type) "gzip") gunzip-through-ports)
+                                  ((string-ci=? (bytes->string/utf-8 type) "deflate") inflate)))
+            (call-with-output-file #:exists e o (lambda (output) (handler port output))))
+          (lambda () post ...))))))
+
+(define read-syntax
+  (lambda (src port)
+    (define (get-block sym) (let work ((r null))
+                              (define v (read port))
+                              (cond ((eq? v sym) (reverse r))
+                                    (else (work (cons v r))))))
+    (datum->syntax #f (let loop ((u #f)
+                                 (r 0)
+                                 (e 'trucate/replace)
+                                 (f #f)
+                                 (h null)
+                                 (pr null)
+                                 (po null))
+                        (define v (read port))
+                        (cond ((eof-object? v) (list 'module (gensym 'rget) (path->string (path->complete-path lib))
+                                                     ':pr (if (null? pr) '((void)) pr)
+                                                     ':u u
+                                                     ':h h
+                                                     ':r r
+                                                     ':f f
+                                                     ':e e
+                                                     ':po (if (null? po) '((void)) po)))
+                              ((eq? v ':u)
+                               (loop (read port) r e f h pr po))
+                              ((eq? v ':r)
+                               (loop u (read port) e f h pr po))
+                              ((eq? v ':e)
+                               (loop u r (read port) f h pr po))
+                              ((eq? v ':f)
+                               (loop u r e (read port) h pr po))
+                              ((eq? v ':h)
+                               (loop u r e f
+                                     (append h (get-block ':h))
+                                     pr po))
+                              ((eq? v ':pr)
+                               (loop u r e f h (append pr (get-block ':pr)) po))
+                              ((eq? v ':po)
+                               (loop u r e f h pr (append po (get-block ':po))))
+                              (else (raise-syntax-error 'read-syntax (format "fail to parse the syntax due to a ~s" v))))))))
+
+(provide read-syntax (rename-out (#%rget-module-begin #%module-begin)))
+
+(module+ test
+  (test-case
+      "read-syntax"
+    (check-match (syntax->datum (read-syntax #f (open-input-string ":u \"https://127.0.0.1:8080\" :r 4 :e 'truncate :f \"test\" :h \"Content-Type: gzip\" :h :pr (displayln \"hello\") :pr :po (displayln \"finish\") :po :pr (displayln \"begin\") :pr")))
+                 (list 'module modname (regexp "^.*main\\.rkt$")
+                       ':pr (list (list 'displayln "hello") (list 'displayln "begin"))
+                       ':u "https://127.0.0.1:8080"
+                       ':h (list "Content-Type: gzip")
+                       ':r 4
+                       ':f "test"
+                       ':e 'truncate
+                       ':po (list (list 'displayln "finish"))))))
