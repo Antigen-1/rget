@@ -119,7 +119,7 @@
                                (loop u r e f p h pr (append po (get-block ':po))))
                               (else (raise-syntax-error 'read-syntax (format "fail to parse the syntax due to a ~s" v))))))))
 
-(provide read-syntax (rename-out (#%rget-module-begin #%module-begin)) (except-in (all-from-out racket/base) #%module-begin))
+(provide read-syntax (rename-out (#%rget-module-begin #%module-begin)) (except-out (all-from-out racket/base) #%module-begin))
 
 (module+ test
   (test-case
