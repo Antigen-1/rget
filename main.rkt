@@ -55,16 +55,17 @@
       :po (post ...) ;;postprocess(optional); can be appended
       )
      #'(#%module-begin
+        pre ...
+        (define-values (port headers)
+          (parameterize ((current-https-protocol p))
+            (get-pure-port/headers (if (string? l) (string->url l) l)
+                                   (list b ...)
+                                   #:method #"GET"
+                                   #:redirections n
+                                   #:status #f)))
         (dynamic-wind
-          (lambda () pre ...)
+          void
           (lambda ()
-            (define-values (port headers)
-              (parameterize ((current-https-protocol p))
-                (get-pure-port/headers (if (string? l) (string->url l) l)
-                                       (list b ...)
-                                       #:method #"GET"
-                                       #:redirections n
-                                       #:status #f)))
             (define type
               (let/cc ret (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Type" headers))
                                                                             (else (ret #f))))))
@@ -72,7 +73,7 @@
                                   ((string-ci=? (bytes->string/utf-8 type) "gzip") gunzip-through-ports)
                                   ((string-ci=? (bytes->string/utf-8 type) "deflate") inflate)))
             (call-with-output-file #:exists e o (lambda (output) (handler port output))))
-          (lambda () post ...))))))
+          (lambda () (close-input-port port) post ...))))))
 
 (define read-syntax
   (lambda (src port)
@@ -118,7 +119,7 @@
                                (loop u r e f p h pr (append po (get-block ':po))))
                               (else (raise-syntax-error 'read-syntax (format "fail to parse the syntax due to a ~s" v))))))))
 
-(provide read-syntax (rename-out (#%rget-module-begin #%module-begin)))
+(provide read-syntax (rename-out (#%rget-module-begin #%module-begin)) (except-in (all-from-out racket/base) #%module-begin))
 
 (module+ test
   (test-case
