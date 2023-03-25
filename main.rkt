@@ -83,7 +83,7 @@
                                     (else (work (cons v r))))))
     (datum->syntax #f (let loop ((u #f)
                                  (r 0)
-                                 (e ''trucate/replace)
+                                 (e ''truncate/replace)
                                  (f #f)
                                  (p ''secure)
                                  (h null)
