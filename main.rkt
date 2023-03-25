@@ -62,7 +62,7 @@
                                    (list b ...)
                                    #:method #"GET"
                                    #:redirections n
-                                   #:status #f)))
+                                   #:status? #f)))
         (dynamic-wind
           void
           (lambda ()
