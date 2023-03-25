@@ -1,3 +1,3 @@
 rget
 ====
-README text here.
+A HTTP-GET client written in racket

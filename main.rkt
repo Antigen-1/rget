@@ -39,7 +39,7 @@
 (define-runtime-path lib "./main.rkt")
 
 (define-syntax (#%rget-module-begin stx)
-  (syntax-case stx (:pr :u :h :r :f :e :po)
+  (syntax-case stx (:pr :u :h :r :f :e :p :po)
     ((_
       :pr (pre ...) ;;preprocess(optional); can be appended
 
@@ -50,6 +50,7 @@
       :r n ;;redirection; it can be overwritten; default to 0
       :f o ;;output; it can be overwritten
       :e e ;;`#:exists` kwarg of `call-with-output-file`; it can be overwritten; default to 'truncate/replace
+      :p p ;;https protocol; it can be overwritten; default to 'secure
       
       :po (post ...) ;;postprocess(optional); can be appended
       )
@@ -57,11 +58,13 @@
         (dynamic-wind
           (lambda () pre ...)
           (lambda ()
-            (define-values (port headers) (get-pure-port/headers (if (string? l) (string->url l) l)
-                                                                 (list b ...)
-                                                                 #:method #"GET"
-                                                                 #:redirections n
-                                                                 #:status #f))
+            (define-values (port headers)
+              (parameterize ((current-https-protocol p))
+                (get-pure-port/headers (if (string? l) (string->url l) l)
+                                       (list b ...)
+                                       #:method #"GET"
+                                       #:redirections n
+                                       #:status #f)))
             (define type
               (let/cc ret (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Type" headers))
                                                                             (else (ret #f))))))
@@ -79,8 +82,9 @@
                                     (else (work (cons v r))))))
     (datum->syntax #f (let loop ((u #f)
                                  (r 0)
-                                 (e 'trucate/replace)
+                                 (e ''trucate/replace)
                                  (f #f)
+                                 (p ''secure)
                                  (h null)
                                  (pr null)
                                  (po null))
@@ -92,23 +96,26 @@
                                                      ':r r
                                                      ':f f
                                                      ':e e
+                                                     ':p p
                                                      ':po (if (null? po) '((void)) po)))
                               ((eq? v ':u)
-                               (loop (read port) r e f h pr po))
+                               (loop (read port) r e f p h pr po))
                               ((eq? v ':r)
-                               (loop u (read port) e f h pr po))
+                               (loop u (read port) e f p h pr po))
                               ((eq? v ':e)
-                               (loop u r (read port) f h pr po))
+                               (loop u r (read port) f p h pr po))
                               ((eq? v ':f)
-                               (loop u r e (read port) h pr po))
+                               (loop u r e (read port) p h pr po))
+                              ((eq? v ':p)
+                               (loop u r e f (read port) h pr po))
                               ((eq? v ':h)
-                               (loop u r e f
+                               (loop u r e f p
                                      (append h (get-block ':h))
                                      pr po))
                               ((eq? v ':pr)
-                               (loop u r e f h (append pr (get-block ':pr)) po))
+                               (loop u r e f p h (append pr (get-block ':pr)) po))
                               ((eq? v ':po)
-                               (loop u r e f h pr (append po (get-block ':po))))
+                               (loop u r e f p h pr (append po (get-block ':po))))
                               (else (raise-syntax-error 'read-syntax (format "fail to parse the syntax due to a ~s" v))))))))
 
 (provide read-syntax (rename-out (#%rget-module-begin #%module-begin)))

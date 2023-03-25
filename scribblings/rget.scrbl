@@ -1,10 +1,12 @@
 #lang scribble/manual
 @require[@for-label[rget
-                    racket/base]]
+                    (except-in racket/base #%module-begin read-syntax)]]
 
 @title{rget}
 @author{hin}
 
-@defmodule[rget]
+@defmodule[rget #:reader]
 
-Package Description Here
+A HTTP-GET client written in racket.
+
+This module should be used through a @code[#:lang "reader rget"] header.
