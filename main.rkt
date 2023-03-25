@@ -34,7 +34,7 @@
 
   )
 
-(require net/url net/head racket/port file/gunzip racket/runtime-path (for-syntax racket/base))
+(require net/url net/head net/url-connect racket/port file/gunzip racket/runtime-path (for-syntax racket/base))
 
 (define-runtime-path lib "./main.rkt")
 
