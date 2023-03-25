@@ -70,8 +70,8 @@
               (let/cc ret (car (regexp-match #rx"^(?i:gzip)|^(?i:deflate)" (cond ((extract-field "Content-Encoding" headers))
                                                                                  (else (ret #f)))))))
             (define handler (cond ((not type) copy-port)
-                                  ((string-ci=? (bytes->string/utf-8 type) "gzip") gunzip-through-ports)
-                                  ((string-ci=? (bytes->string/utf-8 type) "deflate") inflate)))
+                                  ((string-ci=? type "gzip") gunzip-through-ports)
+                                  ((string-ci=? type "deflate") inflate)))
             (call-with-output-file #:exists e o (lambda (output) (handler port output))))
           (lambda () (close-input-port port) post ...))))))
 
