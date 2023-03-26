@@ -79,48 +79,45 @@
               (lambda () (close-input-port port))))
           (lambda () post ...))))))
 
+(struct configure (pr u h r f e p po))
+
+(define (configure->input c)
+  (list
+   ':pr (let ((pr (configure-pr c))) (if (null? pr) '((void)) pr))
+   ':u (configure-u c)
+   ':h (configure-h c)
+   ':r (configure-r c)
+   ':f (configure-f c)
+   ':e (configure-e c)
+   ':p (configure-p c)
+   ':po (let ((po (configure-po c))) (if (null? po) '((void)) po))))
+
 (define read-syntax
   (lambda (src port)
     (define (get-block sym) (let work ((r null))
                               (define v (read port))
                               (cond ((eq? v sym) (reverse r))
                                     (else (work (cons v r))))))
-    (datum->syntax #f (let loop ((u #f)
-                                 (r 0)
-                                 (e ''truncate/replace)
-                                 (f #f)
-                                 (p ''secure)
-                                 (h null)
-                                 (pr null)
-                                 (po null))
+    (datum->syntax #f (let loop ((c (configure null #f null 0 #f ''truncate/replace ''secure null)))
                         (define v (read port))
-                        (cond ((eof-object? v) (list 'module (gensym 'rget) (list 'file (path->string (path->complete-path lib)))
-                                                     ':pr (if (null? pr) '((void)) pr)
-                                                     ':u u
-                                                     ':h h
-                                                     ':r r
-                                                     ':f f
-                                                     ':e e
-                                                     ':p p
-                                                     ':po (if (null? po) '((void)) po)))
+                        (cond ((eof-object? v) (append (list 'module (gensym 'rget) (list 'file (path->string (path->complete-path lib))))
+                                                       (configure->input c)))
                               ((eq? v ':u)
-                               (loop (read port) r e f p h pr po))
+                               (loop (struct-copy configure c (u (read port)))))
                               ((eq? v ':r)
-                               (loop u (read port) e f p h pr po))
+                               (loop (struct-copy configure c (r (read port)))))
                               ((eq? v ':e)
-                               (loop u r (read port) f p h pr po))
+                               (loop (struct-copy configure c (e (read port)))))
                               ((eq? v ':f)
-                               (loop u r e (read port) p h pr po))
+                               (loop (struct-copy configure c (f (read port)))))
                               ((eq? v ':p)
-                               (loop u r e f (read port) h pr po))
+                               (loop (struct-copy configure c (p (read port)))))
                               ((eq? v ':h)
-                               (loop u r e f p
-                                     (append h (get-block ':h))
-                                     pr po))
+                               (loop (struct-copy configure c (h (append (configure-h c) (get-block ':h))))))
                               ((eq? v ':pr)
-                               (loop u r e f p h (append pr (get-block ':pr)) po))
+                               (loop (struct-copy configure c (pr (append (configure-pr c) (get-block ':pr))))))
                               ((eq? v ':po)
-                               (loop u r e f p h pr (append po (get-block ':po))))
+                               (loop (struct-copy configure c (po (append (configure-po c) (get-block ':po))))))
                               (else (raise-syntax-error 'read-syntax (format "fail to parse the syntax due to a ~s" v))))))))
 
 (provide read-syntax (rename-out (#%rget-module-begin #%module-begin)) (except-out (all-from-out racket/base) #%module-begin))
